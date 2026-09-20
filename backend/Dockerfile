@@ -1,5 +1,10 @@
 FROM mcr.microsoft.com/playwright:v1.48.0-jammy
 
+# Upgrade Node.js to v22 to satisfy Supabase native WebSocket requirements
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    apt-get install -y nodejs
+
 WORKDIR /app
 
 # Copy package files
