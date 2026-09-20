@@ -1,0 +1,43 @@
+.log-table-wrap {
+  overflow-x: auto;
+}
+
+.log-table .log-error {
+  max-width: 300px;
+  font-size: 0.8rem;
+  color: #64748b;
+  word-break: break-word;
+}
+
+.log-row.log-failed {
+  background: #fef2f2;
+}
+
+.log-row.log-retried {
+  background: #fffbeb;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge-success {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.badge-retried {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.badge-failed {
+  background: #fecaca;
+  color: #dc2626;
+}
