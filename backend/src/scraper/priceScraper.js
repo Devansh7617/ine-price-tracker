@@ -124,18 +124,20 @@ async function scrapeProductPrice(browser, product, { headed = false } = {}) {
 
     // Step 7: Click "Reveal price" button
     logger.parse('Clicking Reveal price');
-    const revealBtn = await page.$(SELECTORS.revealPriceBtn + ':not([disabled])');
-    if (!revealBtn) {
-      // Button might still be disabled - wait a bit more
+    let revealBtn = null;
+    
+    // Wait up to 3 seconds for the button to become enabled after mouse movements
+    for (let i = 0; i < 6; i++) {
+      revealBtn = await page.$(SELECTORS.revealPriceBtn + ':not([disabled])');
+      if (revealBtn) break;
       await page.waitForTimeout(500);
-      const retryBtn = await page.$(SELECTORS.revealPriceBtn + ':not([disabled])');
-      if (!retryBtn) {
-        throw new ScrapeError('Reveal price button is disabled', 'INTERACTION_FAILED');
-      }
-      await retryBtn.click({ force: true });
-    } else {
-      await revealBtn.click({ force: true });
     }
+
+    if (!revealBtn) {
+      throw new ScrapeError('Reveal price button is disabled or not found', 'INTERACTION_FAILED');
+    }
+    
+    await revealBtn.click({ force: true });
 
     // Step 8: Wait for price to load
     // The price block transitions: idle → loading → (retrying)* → success|error
