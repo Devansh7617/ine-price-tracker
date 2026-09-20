@@ -95,6 +95,9 @@ async function scrapeProductPrice(browser, product, { headed = false } = {}) {
       }
       throw new ScrapeError('Product detail section not found', 'PAGE_STRUCTURE_CHANGED');
     }
+    
+    // Give React an extra moment to fully hydrate the DOM (helps on slower local machines)
+    await page.waitForTimeout(1500);
 
     // Step 3: Verify product identity
     const scrapedName = await page.$eval(

@@ -14,6 +14,11 @@
  */
 
 require('dotenv').config();
+
+// Override timeouts for local headed mode to be extremely patient
+process.env.SCRAPE_TIMEOUT_MS = '60000';
+process.env.SCRAPE_PRICE_WAIT_MS = '30000';
+
 const { launchBrowser, scrapeProductPrice } = require('../src/scraper/priceScraper');
 const { withRetry } = require('../src/scraper/retryManager');
 const { validateScrapedData } = require('../src/scraper/validators');
@@ -40,63 +45,75 @@ async function runHeadedScrape() {
   logger.info(`Target product: ID ${productId} at ${product.product_url}`);
   console.log('');
 
-  let browser;
-  try {
-    // Launch browser in headed mode (visible window)
-    browser = await launchBrowser(true);
+  let success = false;
+  let runCount = 0;
 
-    // Scrape with retry logic
-    const result = await withRetry(
-      async (attempt) => {
-        return await scrapeProductPrice(browser, product, { headed: true });
-      },
-      { productName: `Product #${productId}` }
-    );
+  while (!success) {
+    runCount++;
+    console.log(`\n--- RUNNING SCRAPE CYCLE #${runCount} ---`);
+    let browser;
+    try {
+      // Launch browser in headed mode (visible window)
+      browser = await launchBrowser(true);
 
-    console.log('');
-    console.log('='.repeat(60));
+      // Scrape with retry logic
+      const result = await withRetry(
+        async (attempt) => {
+          return await scrapeProductPrice(browser, product, { headed: true });
+        },
+        { productName: `Product #${productId}` }
+      );
 
-    if (result.success) {
-      // Validate the data
-      const validation = validateScrapedData({
-        price: result.data.price,
-        stock: result.data.stock,
-        productName: result.data.productName,
-        expectedName: result.data.productName, // Use scraped name as expected for demo
-      });
+      console.log('');
+      console.log('='.repeat(60));
 
-      if (validation.valid) {
-        console.log('  ✅ SCRAPE SUCCESSFUL');
-        console.log(`  Product: ${result.data.productName}`);
-        console.log(`  Price:   ${result.data.price}`);
-        console.log(`  Stock:   ${result.data.stock}`);
-        console.log(`  Attempts: ${result.attempts}`);
-        console.log(`  Status:  ${result.finalStatus}`);
+      if (result.success) {
+        // Validate the data
+        const validation = validateScrapedData({
+          price: result.data.price,
+          stock: result.data.stock,
+          productName: result.data.productName,
+          expectedName: result.data.productName, // Use scraped name as expected for demo
+        });
+
+        if (validation.valid) {
+          console.log('  ✅ SCRAPE SUCCESSFUL');
+          console.log(`  Product: ${result.data.productName}`);
+          console.log(`  Price:   ${result.data.price}`);
+          console.log(`  Stock:   ${result.data.stock}`);
+          console.log(`  Attempts: ${result.attempts}`);
+          console.log(`  Status:  ${result.finalStatus}`);
+          success = true; // Break out of the infinite loop
+        } else {
+          console.log('  ❌ VALIDATION FAILED');
+          console.log(`  Errors: ${validation.errors.join(', ')}`);
+          console.log('  No invalid data would be stored.');
+        }
       } else {
-        console.log('  ❌ VALIDATION FAILED');
-        console.log(`  Errors: ${validation.errors.join(', ')}`);
-        console.log('  No invalid data would be stored.');
+        console.log('  ❌ SCRAPE FAILED');
+        console.log(`  Attempts: ${result.attempts}`);
+        console.log(`  Last error: ${result.lastError}`);
+        console.log('  No invalid data stored.');
       }
-    } else {
-      console.log('  ❌ SCRAPE FAILED');
-      console.log(`  Attempts: ${result.attempts}`);
-      console.log(`  Last error: ${result.lastError}`);
-      console.log('  No invalid data stored.');
-    }
 
-    console.log('='.repeat(60));
-    console.log('');
-  } catch (err) {
-    console.error('');
-    console.error('  ❌ UNEXPECTED ERROR');
-    console.error(`  ${err.message}`);
-    console.error('');
-  } finally {
-    if (browser) {
-      // Keep browser open for a moment so the recording can show the result
-      console.log('Browser will close in 5 seconds...');
-      await new Promise(r => setTimeout(r, 5000));
-      await browser.close().catch(() => {});
+      console.log('='.repeat(60));
+      console.log('');
+    } catch (err) {
+      console.error('');
+      console.error('  ❌ UNEXPECTED ERROR');
+      console.error(`  ${err.message}`);
+      console.error('');
+    } finally {
+      if (browser) {
+        if (success) {
+          console.log('Success achieved! Browser will close in 5 seconds...');
+          await new Promise(r => setTimeout(r, 5000));
+        } else {
+          console.log('Failed... Immediately restarting cycle in 2 seconds...');
+          await new Promise(r => setTimeout(r, 2000));
+        }
+        await browser.close().catch(() => {});
+      }
     }
   }
 }
